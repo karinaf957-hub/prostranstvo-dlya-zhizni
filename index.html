@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f5f4ee">
+  <link rel="icon" href="data:,">
+  <title>168 — Пространство для Жизни</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">К содержимому</a>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Навигация приложения">
+      <a class="brand" href="#week" aria-label="168 — Моя неделя"><span class="brand-number">168<span>◦</span></span><span>Пространство<br>для Жизни</span></a>
+      <p class="nav-caption">МОЁ ПРОСТРАНСТВО</p>
+      <nav id="navigation" aria-label="Основные разделы"></nav>
+      <div class="sidebar-note"><span class="small-orbit" aria-hidden="true">◌</span><p>Время для важного.<br>Место для себя.</p><span>Одна неделя. Одна жизнь.</span></div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar"><span id="today-label"></span><span id="save-status" role="status">Локальное хранение</span></header>
+      <div id="storage-warning" class="storage-warning" role="alert" hidden></div>
+      <main id="main" tabindex="-1"></main>
+      <footer>168 · Пространство для Жизни <span>Данные хранятся в этом браузере</span></footer>
+    </div>
+  </div>
+  <dialog id="modal" aria-labelledby="modal-title"></dialog>
+  <div id="notifications" class="notifications" aria-live="polite"></div>
+  <noscript>Для работы планировщика включи JavaScript в браузере.</noscript>
+</body>
+</html>
