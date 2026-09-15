@@ -1,0 +1,74 @@
+async (page) => {
+  if (!page.url().startsWith('http://127.0.0.1:4186')) throw new Error('Только тестовый адрес');
+  page.setDefaultTimeout(7000);
+  const assert = (value, message) => { if (!value) throw new Error(message); };
+  const results = [];
+  const saved = await page.evaluate(() => localStorage.getItem('life168_app'));
+  const restore = async () => { await page.evaluate(raw => { localStorage.setItem('life168_app', raw); }, saved); await page.reload(); };
+  // Все изменения ниже относятся только к временному тестовому origin.
+  await page.evaluate(() => localStorage.setItem('life168_app', '{broken'));
+  await page.reload();
+  assert(await page.getByRole('heading', { name: 'Сохраним твои данные' }).isVisible(), 'Нет безопасного восстановления');
+  assert(await page.evaluate(() => localStorage.getItem('life168_app')) === '{broken', 'Исходные данные затёрты');
+  const rawDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Скачать исходные данные', exact: true }).click();
+  assert((await rawDownload).suggestedFilename().includes('исходные-данные'), 'Нет экспорта исходного значения');
+  results.push('Повреждённое хранилище и экспорт исходных данных');
+  await page.getByRole('button', { name: 'Сбросить повреждённые данные' }).click();
+  await page.getByLabel('Введи УДАЛИТЬ для подтверждения').fill('нет');
+  await page.getByRole('button', { name: 'Удалить данные', exact: true }).click();
+  assert(await page.evaluate(() => localStorage.getItem('life168_app')) === '{broken', 'Сброс без подтверждения');
+  await page.getByLabel('Введи УДАЛИТЬ для подтверждения').fill('УДАЛИТЬ');
+  await page.getByRole('button', { name: 'Удалить данные', exact: true }).click();
+  assert(await page.getByRole('heading', { name: 'Добро пожаловать' }).isVisible(), 'Нет знакомства после восстановления');
+  await page.getByRole('button', { name: 'Пропустить', exact: true }).click();
+  results.push('Двойное подтверждение аварийного сброса');
+  await restore();
+  await page.getByRole('navigation').getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.evaluate(() => {
+    window.__originalSet = Storage.prototype.setItem;
+    Storage.prototype.setItem = function () { throw new DOMException('Тест', 'QuotaExceededError'); };
+  });
+  await page.getByLabel('Как тебя зовут').fill('Сохранить при ошибке');
+  await page.getByLabel('Резерв бодрствования, %').focus();
+  assert((await page.locator('#storage-warning').innerText()).includes('Место в хранилище закончилось'), 'Нет сообщения о квоте');
+  const backupDownload = page.waitForEvent('download');
+  await page.locator('#storage-warning').getByRole('button', { name: 'Скачать резервную копию', exact: true }).click();
+  assert((await backupDownload).suggestedFilename().includes('резервная копия'), 'Нет аварийного экспорта');
+  await page.evaluate(() => { Storage.prototype.setItem = window.__originalSet; });
+  await page.getByRole('button', { name: 'Повторить сохранение' }).click();
+  assert(await page.locator('#storage-warning').isHidden(), 'Ошибка не исчезла после сохранения');
+  assert(await page.evaluate(() => JSON.parse(localStorage.getItem('life168_app')).uiState.settingsDraft.name) === 'Сохранить при ошибке', 'Последние изменения потеряны');
+  results.push('Квота: данные в памяти, экспорт и повторная запись');
+  await restore();
+  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('life168_app')); s.testPadding='x'.repeat(2300000); localStorage.setItem('life168_app',JSON.stringify(s)); });
+  await page.reload();
+  await page.waitForFunction(() => document.querySelector('#storage-warning')?.textContent.includes('70%'));
+  assert((await page.locator('#storage-warning').innerText()).includes('70%'), 'Нет предупреждения об объёме');
+  results.push('Предупреждение при 70% мягкого лимита');
+  await restore();
+  const layouts = [];
+  for (const width of [1440,1024,768,390,320]) {
+    await page.setViewportSize({width,height:900});
+    await page.getByRole('navigation').getByRole('button',{name:'Сферы жизни',exact:true}).click();
+    const overflow = await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);
+    assert(!overflow,'Переполнение при ширине '+width);
+    layouts.push(width);
+  }
+  await page.getByRole('button',{name:'+ Добавить сферу',exact:true}).click();
+  const dialogWidth=await page.locator('dialog').evaluate(n=>n.getBoundingClientRect().width);
+  assert(dialogWidth<=320,'Диалог шире экрана');
+  await page.keyboard.press('Tab');
+  assert(await page.evaluate(()=>document.querySelector('dialog').contains(document.activeElement)),'Фокус вышел за диалог');
+  await page.keyboard.press('Escape');
+  results.push('Адаптивность 1440 / 1024 / 768 / 390 / 320 и клавиатурный фокус');
+  await page.setViewportSize({width:1440,height:1000});
+  await page.context().setOffline(true); await page.getByRole('button',{name:'+ Добавить сферу',exact:true}).click();
+  await page.getByLabel('Название сферы',{exact:true}).fill('Без сети');
+  await page.getByRole('button',{name:'Сохранить',exact:true}).click();
+  assert(await page.evaluate(()=>JSON.parse(localStorage.getItem('life168_app')).lifeAreas.some(a=>a.name==='Без сети')),'Без сети нет сохранения');
+  await page.context().setOffline(false);
+  results.push('Работа после отключения сети');
+  await restore();
+  return {passed:results.length,results,layouts};
+}
